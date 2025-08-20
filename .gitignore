@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Env
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# Ruff / pytest caches
+.ruff_cache/
+.pytest_cache/
+
+# MacOS
+.DS_Store
+
+

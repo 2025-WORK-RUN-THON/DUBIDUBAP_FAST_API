@@ -10,15 +10,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Archive source
+      - name: Archive source (git archive)
         run: |
-          tar -czf fastapi-src.tgz \
-            --exclude-vcs \
-            --exclude='./.venv' \
-            --exclude='./data/*' \
-            --exclude='./downloads/*' \
-            --exclude='./tmp/*' .
+          git archive --format=tar.gz -o fastapi-src.tgz HEAD
 
       - name: Upload to server
         uses: appleboy/scp-action@v0.1.7

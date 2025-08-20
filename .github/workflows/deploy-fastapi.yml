@@ -69,12 +69,14 @@ jobs:
             . .venv/bin/activate
             pip install --upgrade pip
             pip install -e .
+            pip install 'uvicorn[standard]'
 
             # 6) .env
             printf "%s" "${{ secrets.ENV_FILE }}" | sed 's/\r$//' | sudo tee "$APP_DIR/shared/env/.env" >/dev/null
             sudo chown "$SVC_USER":"$SVC_USER" "$APP_DIR/shared/env/.env"
 
-            # 7) 심볼릭 전환
+            # 7) current 심볼릭 강제 전환
+            sudo rm -rf "$APP_DIR/current"
             ln -sfn "$APP_DIR/releases/$REL" "$APP_DIR/current"
 
             # 8) systemd 유닛(덮어쓰기)
@@ -88,7 +90,7 @@ jobs:
             Type=simple
             WorkingDirectory=${APP_DIR}/current
             EnvironmentFile=${APP_DIR}/shared/env/.env
-            ExecStart=${APP_DIR}/current/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010
+            ExecStart=${APP_DIR}/current/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
             Restart=always
             RestartSec=3
             User=${SVC_USER}
@@ -101,3 +103,6 @@ jobs:
             sudo systemctl enable trendy-lyrics.service || true
             sudo systemctl restart trendy-lyrics.service
             sudo systemctl status trendy-lyrics.service --no-pager -l || true
+
+            # 9) 헬스 확인 (로그만 남김)
+            curl -sf http://127.0.0.1:8010/health || true

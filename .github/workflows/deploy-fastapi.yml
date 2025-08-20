@@ -38,32 +38,46 @@ jobs:
             REL=$(date +%Y%m%d%H%M%S)
             SVC_USER=${{ secrets.SSH_USER }}
 
-            # Amazon Linux pkgs
-            if command -v dnf >/dev/null 2>&1; then sudo dnf -y upgrade || true; sudo dnf install -y python3 python3-venv ffmpeg || true; fi
-            if command -v yum >/dev/null 2>&1; then sudo yum -y update || true; sudo yum install -y python3 python3-venv ffmpeg || true; fi
+            # 1) Python 3.11 설치 (Amazon Linux 2023)
+            if command -v dnf >/dev/null 2>&1; then
+              sudo dnf -y upgrade || true
+              sudo dnf install -y python3.11 python3.11-devel || true
+            elif command -v yum >/dev/null 2>&1; then
+              sudo yum -y update || true
+              sudo yum install -y python3.11 || true
+            fi
 
-            # Dirs
+            # 2) ffmpeg 정적 바이너리 설치 (없을 때만)
+            if ! command -v ffmpeg >/dev/null 2>&1; then
+              cd /tmp
+              curl -L -o ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+              tar -xJf ffmpeg.tar.xz
+              sudo mv ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ffmpeg
+              sudo chmod +x /usr/local/bin/ffmpeg
+            fi
+
+            # 3) 디렉터리
             sudo mkdir -p "$APP_DIR/releases/$REL" "$APP_DIR/shared/env" "$APP_DIR/shared/data"
             sudo chown -R "$SVC_USER":"$SVC_USER" "$APP_DIR"
 
-            # Unpack
+            # 4) 소스 전개
             tar -xzf /tmp/fastapi-src.tgz -C "$APP_DIR/releases/$REL"
             cd "$APP_DIR/releases/$REL"
 
-            # venv + install
-            python3 -m venv .venv
+            # 5) venv(python3.11) + 설치
+            python3.11 -m venv .venv
             . .venv/bin/activate
             pip install --upgrade pip
             pip install -e .
 
-            # .env from secret
+            # 6) .env
             printf "%s" "${{ secrets.ENV_FILE }}" | sed 's/\r$//' | sudo tee "$APP_DIR/shared/env/.env" >/dev/null
             sudo chown "$SVC_USER":"$SVC_USER" "$APP_DIR/shared/env/.env"
 
-            # Symlink current
+            # 7) 심볼릭 전환
             ln -sfn "$APP_DIR/releases/$REL" "$APP_DIR/current"
 
-            # systemd unit (overwrite safely)
+            # 8) systemd 유닛(덮어쓰기)
             SVC=/etc/systemd/system/trendy-lyrics.service
             sudo tee "$SVC" >/dev/null <<SERVICE
             [Unit]

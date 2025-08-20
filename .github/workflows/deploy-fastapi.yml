@@ -1,0 +1,92 @@
+name: Deploy FastAPI (EC2 Amazon Linux)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Archive source
+        run: |
+          tar -czf fastapi-src.tgz \
+            --exclude-vcs \
+            --exclude='./.venv' \
+            --exclude='./data/*' \
+            --exclude='./downloads/*' \
+            --exclude='./tmp/*' .
+
+      - name: Upload to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "fastapi-src.tgz"
+          target: "/tmp/"
+
+      - name: Remote deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            APP_DIR=${{ secrets.APP_DIR }}
+            REL=$(date +%Y%m%d%H%M%S)
+            SVC_USER=${{ secrets.SSH_USER }}
+
+            # Amazon Linux pkgs
+            if command -v dnf >/dev/null 2>&1; then sudo dnf -y upgrade || true; sudo dnf install -y python3 python3-venv ffmpeg || true; fi
+            if command -v yum >/dev/null 2>&1; then sudo yum -y update || true; sudo yum install -y python3 python3-venv ffmpeg || true; fi
+
+            # Dirs
+            sudo mkdir -p "$APP_DIR/releases/$REL" "$APP_DIR/shared/env" "$APP_DIR/shared/data"
+            sudo chown -R "$SVC_USER":"$SVC_USER" "$APP_DIR"
+
+            # Unpack
+            tar -xzf /tmp/fastapi-src.tgz -C "$APP_DIR/releases/$REL"
+            cd "$APP_DIR/releases/$REL"
+
+            # venv + install
+            python3 -m venv .venv
+            . .venv/bin/activate
+            pip install --upgrade pip
+            pip install -e .
+
+            # .env from secret
+            printf "%s" "${{ secrets.ENV_FILE }}" | sed 's/\r$//' | sudo tee "$APP_DIR/shared/env/.env" >/dev/null
+            sudo chown "$SVC_USER":"$SVC_USER" "$APP_DIR/shared/env/.env"
+
+            # Symlink current
+            ln -sfn "$APP_DIR/releases/$REL" "$APP_DIR/current"
+
+            # systemd unit (overwrite safely)
+            SVC=/etc/systemd/system/trendy-lyrics.service
+            sudo tee "$SVC" >/dev/null <<SERVICE
+            [Unit]
+            Description=Trendy Lyrics FastAPI
+            After=network.target
+
+            [Service]
+            Type=simple
+            WorkingDirectory=${APP_DIR}/current
+            EnvironmentFile=${APP_DIR}/shared/env/.env
+            ExecStart=${APP_DIR}/current/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010
+            Restart=always
+            RestartSec=3
+            User=${SVC_USER}
+
+            [Install]
+            WantedBy=multi-user.target
+            SERVICE
+
+            sudo systemctl daemon-reload || true
+            sudo systemctl enable trendy-lyrics.service || true
+            sudo systemctl restart trendy-lyrics.service
+            sudo systemctl status trendy-lyrics.service --no-pager -l || true

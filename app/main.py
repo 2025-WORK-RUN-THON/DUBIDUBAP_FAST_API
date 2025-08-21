@@ -5,6 +5,9 @@ from starlette.middleware.cors import CORSMiddleware
 import time
 import logging
 import uuid
+import json
+import os
+from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 
 from app.core.config import settings
@@ -82,9 +85,13 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=400, content=body)
 
     @app.on_event("startup")
-    def on_startup() -> None:
+    async def on_startup() -> None:
         # Ensure tables exist on startup
         init_db()
+        
+        # Load music analysis data
+        from app.services.music_analysis import music_analysis_service
+        await music_analysis_service.load_embeddings_data()
 
     return app
 

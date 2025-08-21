@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  trendy-lyrics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trendy-lyrics
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENV=production
+      - LOG_LEVEL=info
+    volumes:
+      - ./data/processed:/app/data/processed:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - trendy-network
+
+  # Optional: Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: trendy-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - trendy-network
+
+  # Optional: Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: trendy-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - trendy-lyrics
+    networks:
+      - trendy-network
+
+volumes:
+  redis_data:
+
+networks:
+  trendy-network:
+    driver: bridge

@@ -19,8 +19,8 @@ uvicorn app.main:app --reload
 
 3. Test endpoints
 
-- Health: `GET http://127.0.0.1:8000/health`
-- Ping: `GET http://127.0.0.1:8000/api/v1/ping`
+- Health: `GET http://127.0.0.1:8010/health`
+- Ping: `GET http://127.0.0.1:8010/api/v1/ping`
 
 ### Configuration
 
@@ -33,7 +33,7 @@ Environment variables are read from a local `.env` file if present. See keys in 
 - Dry-run (no download/transcribe, path planning only):
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/process/transcribe-url \
+curl -X POST http://127.0.0.1:8010/api/v1/process/transcribe-url \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","dry_run":true}'
 ```
@@ -41,7 +41,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/process/transcribe-url \
 - Real transcription (will download audio and run faster-whisper on first call):
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/process/transcribe-url \
+curl -X POST http://127.0.0.1:8010/api/v1/process/transcribe-url \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","model_size":"small"}'
 ```

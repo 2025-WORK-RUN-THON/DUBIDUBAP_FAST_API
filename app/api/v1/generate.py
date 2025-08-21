@@ -45,11 +45,11 @@ class VocalGender(str, Enum):
 
 class GenerateRequest(BaseModel):
     service_name: str = Field(min_length=1, max_length=80)
-    slogan: str
-    target_customer: str
-    mood_tone: List[str]
-    music_genre: str = Field(min_length=1, max_length=200)
-    version: VersionType
+    slogan: str = Field(default="")
+    target_customer: str = Field(default="")
+    mood_tone: List[str] = Field(default_factory=list)
+    music_genre: str = Field(default="pop")  # 기본값 제공, min_length 제거
+    version: VersionType = VersionType.SHORT  # 기본값 설정
     industry: Optional[str] = None
     marketing_item: Optional[str] = None
     extra: Optional[str] = None
